@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+
+# Crappy test script for the example server using STDIN / STDOUT transport.
+
+function cleanup() {
+    rm /tmp/phelps-test
+    exit
+}
+
+trap cleanup SIGINT
+
+mkfifo /tmp/phelps-test
+exec 3<>/tmp/phelps-test
+cat > /tmp/phelps-test &
+cat /tmp/phelps-test | cargo run &
+
+sleep 1
+
+cat <<'EOF' | sed 's/$/\r/' > /tmp/phelps-test
+Content-Length: 85
+
+{"jsonrpc": "2.0", "method": "initialize", "id": 1, "params": {"capabilities": {}}}
+EOF
+
+cat << 'EOF' | sed 's/$/\r/' > /tmp/phelps-test
+Content-Length: 59
+
+{"jsonrpc": "2.0", "method": "initialized", "params": {}}
+EOF
+
+cat << 'EOF' | sed 's/$/\r/' > /tmp/phelps-test
+Content-Length: 159
+
+{"jsonrpc": "2.0", "method": "textDocument/definition", "id": 2, "params": {"textDocument": {"uri": "file://temp"}, "position": {"line": 1, "character": 1}}}
+EOF
+
+cat << 'EOF' | sed 's/$/\r/' > /tmp/phelps-test
+Content-Length: 67
+
+{"jsonrpc": "2.0", "method": "shutdown", "id": 3, "params": null}
+EOF
+
+cat << 'EOF' | sed 's/$/\r/' > /tmp/phelps-test
+Content-Length: 54
+
+{"jsonrpc": "2.0", "method": "exit", "params": null}
+EOF
+
+cleanup
